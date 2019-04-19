@@ -32,5 +32,65 @@ frame <- rbind(data.frame(x1,y=y1,group=1),data.frame(x2,y=y2,group=2),data.fram
 hist(frame$y)
 
 
+#############我的版本####################
+#生成混合高斯分布随机向量
+#tag=TRUE表示生成的向量带组标签
+library("MASS")
+r_Gaussian_mixed <- function(n=100,mu,sigma,weight,tag=FALSE){ 
+  
+  #默认值
+  if (missing(mu)|missing(sigma)|missing(weight)){
+    mu <- matrix(0,2,2)
+    sigma <- array(rep(diag(1,2,2),2),dim = c(2,2,2))
+    weight <- c(0.5,0.5)
+  }
+  
+  r <- runif(n,0,1)
+  c.weight <- cumsum(weight)
+  if (tag){
+    r_G_m <- matrix(0,ncol = nrow(as.matrix(mu))+1,nrow = n)
+    i <- 1
+    for (x in r){
+      order <- sum(c.weight<x)+1
+      r_G_m[i,] <- c(mvrnorm(1,mu[,order],sigma[,,order]),order)
+      i=i+1
+    }
+  }
+  else{
+    r_G_m <- matrix(0,ncol = nrow(as.matrix(mu)),nrow = n)
+    i <- 1
+    for (x in r){
+      order <- sum(c.weight<x)+1
+      r_G_m[i,] <- mvrnorm(1,mu[,order],sigma[,,order])
+      i=i+1
+    }
+  }
+  return(r_G_m)
+}
+
+#第一步，通过高斯混合分布生成y
+mu <- matrix(c(rep(1,3),0,rep(2,3),0,rep(3,3),0),nrow = 4)
+s <- matrix(0,nrow = 3,ncol = 3)
+for (i in 1:3){
+  for (j in 1:3){
+    sigma[i,j] <- 0.5^abs(i-j)
+  }
+}
+library(Matrix)
+s <- array(rep(as.matrix(bdiag(sigma,1)),3),dim = c(4,4,3))
+X_e <- r_Gaussian_mixed(n = 1000,mu = mu,sigma = s,weight = rep(1/3,3),tag = TRUE)#随机向量
+B <- matrix(c(1,1,1,2,2,2,3,3,3),nrow = 3,ncol = 3)#回归系数的斜率项，每一列对应一个混合成分
+A <- c(1,2,3)#回归系数的截距项，每一列对应一个混合成分
+f <- function(x){
+  n <- length(x)
+  class <- x[n]
+  y <- A[class]+t(B[,class])%*%x[-1:-2]+x[n-1]
+  return(y)
+}
+y <- apply(X_e,1,f)#生成y的随机数
+#############我的版本####################
+
+
+
 ################classification#################
 
